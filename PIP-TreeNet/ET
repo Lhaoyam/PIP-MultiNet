@@ -7,42 +7,35 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import confusion_matrix, roc_auc_score, log_loss
 
-# 拆分数据
-# X_train, X_test, y_train, y_test = train_test_split(X_new, y_new, test_size=0.2, random_state=42)
 
-# ExtraTreesClassifier 参数
+
 et_params =  {
-    'n_estimators': 200,      # 增加树的数量
-    'max_depth': 21,          # 增加深度
-    # 'min_samples_split': 7,   # 防止过拟合
-    # 'min_samples_leaf': 1,   # 增加叶子节点的最小样本数
-    'max_features': 'sqrt',   # 每棵树使用的特征比例
-    # 'class_weight': 'balanced', # 处理类别不平衡
-    # 'oob_score': True,  # 关键修复：启用OOB评估
+    'n_estimators': 200,    
+    'max_depth': 21,        
+    # 'min_samples_split': 7, 
+    # 'min_samples_leaf': 1,   
+    'max_features': 'sqrt',  
+    # 'oob_score': True, 
     'n_jobs': -1,
     'class_weight': {0:1627, 1: 1245},  
     'random_state': 42
 }
 
-# 创建包含标准化的管道
 model = make_pipeline(
-    # StandardScaler(),  # 如果需要标准化，可以取消注释
+    # StandardScaler(), 
     ExtraTreesClassifier(**et_params)
 )
 
-# 使用5折交叉验证训练和预测
 cv = StratifiedKFold(n_splits=5)
 y_pred = cross_val_predict(model, X_new, y_new, cv=cv, method='predict')
 y_proba = cross_val_predict(model, X_new, y_new, cv=cv, method='predict_proba')[:, 1]
 
-# 模型拟合（为了提取特征重要性）
+
 model.fit(X_new, y_new)
 
-# 安全除法函数
 def safe_divide(a, b):
     return a / b if b != 0 else 0
 
-# 评估指标
 cm = confusion_matrix(y_new, y_pred)
 TN, FP, FN, TP = cm.ravel()
 
@@ -55,22 +48,17 @@ MCC = safe_divide(MCC_num, MCC_den)
 AUC = roc_auc_score(y_new, y_proba)
 logloss = log_loss(y_new, y_proba)
 
-# 打印结果
-print("\n========== 交叉验证评估报告（ExtraTreesClassifier） ==========")
-print(f"准确率 (AAC): {AAC:.4f}")
-print(f"灵敏度 (Sn): {Sn:.4f}")
-print(f"特异度 (Sp): {Sp:.4f}")
-print(f"马修斯系数 (MCC): {MCC:.4f}")
-print(f"AUC分数: {AUC:.4f}")
-print(f"对数损失: {logloss:.4f}")
-print("混淆矩阵:")
+print("\n========== （ExtraTreesClassifier） ==========")
+print(f"(AAC): {AAC:.4f}")
+print(f"(Sn): {Sn:.4f}")
+print(f"(Sp): {Sp:.4f}")
+print(f" (MCC): {MCC:.4f}")
+print(f" {AUC:.4f}")
+print(f" {logloss:.4f}")
 print(cm)
-
-# 特征重要性输出
 et_model = model.named_steps['extratreesclassifier']
 importances = et_model.feature_importances_
 
-print("\nTop 10重要特征:")
 sorted_idx = importances.argsort()[::-1]
 feature_names = X_new.columns if hasattr(X_new, 'columns') else [f'Feature_{i}' for i in range(X_new.shape[1])]
 for i in sorted_idx[:10]:
