@@ -13,13 +13,12 @@ from imblearn.ensemble import BalancedRandomForestClassifier, BalancedBaggingCla
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import StratifiedKFold
 
-# ———— 修正后的包装器 ————
+
 class WithDecision(BaseEstimator, ClassifierMixin):
     def __init__(self, estimator):
         self.estimator = estimator
     def fit(self, X, y):
         self.estimator.fit(X, y)
-        # 关键：暴露底层 estimator 的 classes_
         self.classes_ = self.estimator.classes_
         return self
     def predict(self, X):
@@ -31,9 +30,7 @@ class WithDecision(BaseEstimator, ClassifierMixin):
         return proba[:,1] - proba[:,0]
 def categorical_probas_to_classes(p):
     return np.argmax(p, axis=1)
-# X_train_whole, X_ind_test, y_train_whole, y_ind_test = train_test_split(X_new, y_new, test_size=0.2, random_state=1111)
 
-# 1. 定义模型（保持原样）
 base_models = [
       ('rf',   WithDecision(RandomForestClassifier(
                  n_estimators=300,
@@ -77,23 +74,19 @@ meta_model = LGBMClassifier(
 
 stacking_model = StackingClassifier(estimators=base_models, 
                                     final_estimator=meta_model,
-                                    passthrough=True,    # 把原始特征也传给元模型
-                                    # stack_method='predict'  # 用概率输出
+                                    passthrough=True,   
+                                    # stack_method='predict'  
                                     stack_method='decision_function'
                                     # stack_method='predict_proba'
                                     )
 
-# 2. 训练模型（在整个训练集上）
+
 stacking_model.fit(X_new, y_new)
 
-# 3. 在独立测试集上评估
 y_test_pred_proba = stacking_model.predict_proba(X_new1)
 
 y_test_pred = categorical_probas_to_classes(y_test_pred_proba)
 
-# print(y_test_pred)
-
-# 4. 计算测试集指标
 TP, FP, FN, TN = confusion_matrix(y_new1, y_test_pred).ravel()
 
 test_accuracy = (TP + TN) / (TP + TN + FP + FN)
@@ -103,7 +96,6 @@ test_mcc = (TP * TN - FP * FN) / math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (
 test_bacc = 0.5 * (test_sensitivity + test_specificity)
 test_auc = roc_auc_score(y_new1, y_test_pred_proba[:, 1])
 
-# 5. 输出独立测试集结果
 print("Independent Test Set Performance:")
 print(f"Accuracy: {test_accuracy:.3f}")
 print(f"Sensitivity (Recall): {test_sensitivity:.3f}")
